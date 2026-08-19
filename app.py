@@ -1,12 +1,10 @@
 import io
-import re
 import streamlit as st
 from google import genai
 from google.genai import types
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
 
 # ----------------------------------------------------
 # 1. 페이지 기본 설정
@@ -97,7 +95,6 @@ SYSTEM_INSTRUCTION = """
 def create_docx(text_content):
     doc = Document()
     
-    # 기본 여백 설정 (좁게)
     for section in doc.sections:
         section.top_margin = Inches(0.8)
         section.bottom_margin = Inches(0.8)
@@ -110,15 +107,15 @@ def create_docx(text_content):
     lines = text_content.split("\n")
     for line in lines:
         if line.startswith("# "):
-            h = doc.add_heading(line.replace("# ", ""), level=1)
+            doc.add_heading(line.replace("# ", ""), level=1)
         elif line.startswith("## "):
-            h = doc.add_heading(line.replace("## ", ""), level=2)
+            doc.add_heading(line.replace("## ", ""), level=2)
         elif line.startswith("ㅁ"):
             p = doc.add_paragraph()
             run = p.add_run(line)
             run.bold = True
             run.font.size = Pt(11)
-            run.font.color.rgb = RGBColor(0, 51, 102) # 네이비
+            run.font.color.rgb = RGBColor(0, 51, 102)
         elif line.strip().startswith("-"):
             p = doc.add_paragraph(line)
             p.paragraph_format.left_indent = Inches(0.2)
@@ -179,17 +176,14 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
         with st.spinner("기획팀 규격에 맞추어 2페이지 동향분석 보고서를 작성 중입니다..."):
             try:
                 response = client.models.generate_content(
-    model="gemini-3.6-flash",
-    contents=user_input,
-    config=types.GenerateContentConfig(
-        system_instruction=SYSTEM_INSTRUCTION,
-        temperature=0.3 # 보고서의 정밀성 및 규격 유지를 위해 낮은 온도 설정
-    )
-) 
+                    model="gemini-3.6-flash",
+                    contents=user_input,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_INSTRUCTION,
+                        temperature=0.3
                     )
                 )
-                report_text = response.text
-                st.session_state["last_report"] = report_text
+                st.session_state["last_report"] = response.text
             except Exception as e:
                 st.error(f"보고서 생성 중 오류가 발생했습니다: {e}")
 
@@ -202,7 +196,6 @@ if "last_report" in st.session_state:
     st.divider()
     col1, col2 = st.columns(2)
     
-    # 1) DOCX 다운로드
     with col1:
         docx_file = create_docx(st.session_state["last_report"])
         st.download_button(
@@ -213,7 +206,6 @@ if "last_report" in st.session_state:
             use_container_width=True
         )
         
-    # 2) TXT 다운로드
     with col2:
         st.download_button(
             label="📥 텍스트 보고서 (.txt) 다운로드",
