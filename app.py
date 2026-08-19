@@ -6,6 +6,7 @@ from google.genai import types
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
 
 # ----------------------------------------------------
 # 1. 페이지 기본 설정
@@ -46,10 +47,10 @@ SYSTEM_INSTRUCTION = """
 # Output Structure & Formatting Rules (출력 및 작성 규격)
 1. 문체 및 특수기호 위계 구조 원칙 (엄격 준수):
    - 대항목 (네모): `□` -> 대주제 및 핵심 테마 명시 (반드시 `□ [요약]` 및 `□ [시사점]` 표기 준수)
-   - 중항목 (찍): `-` -> **[핵심 원칙] 반드시 하위 소항목(·)들의 내용을 포괄하는 간결하고 압축적인 '한 문장 요약/헤드라인' 형태로 작성하며 명사형으로 종결**
+   - 중항목 (찍): `-` -> 반드시 하위 소항목(·)들의 내용을 포괄하는 간결하고 압축적인 '한 문장 요약/헤드라인' 형태로 작성하며 명사형 종결
    - 소항목 (땡): `·` -> 상위 중항목(-)을 뒷받침하는 구체적인 세부 팩트, 통계 수치, 실행 과제, 메커니즘을 상세히 서술
    - 문체: 명확하고 격식 있는 보고서용 개조식 명사형 종결문 (~확대, ~추진, ~견지, ~구축, ~달성, ~확보, ~도모 등)
-   - 문장 길이 및 밀도: 불필요한 수식어를 배제하고 고밀도·컴팩트하게 서술
+   - **[문장 길이 및 줄바꿈 규칙]**: 워드 기준 15pt로 작성 시 각 항목(□, -, ·)의 문장이 **한 줄에 다 들어오거나 최대 2줄을 넘지 않도록** 불필요한 수식어를 배제하고 고밀도·컴팩트하게 서술
 
 2. 보고서 본문 구성:
 ---
@@ -92,19 +93,33 @@ SYSTEM_INSTRUCTION = """
 """
 
 # ----------------------------------------------------
-# 3. Word 문서 생성 유틸리티 (특수기호 서식 지원)
+# 3. Word 문서 생성 유틸리티 (바탕체, 15pt 서식 적용)
 # ----------------------------------------------------
+def set_font_style(run, name="바탕", size_pt=15, bold=False, color_rgb=None):
+    run.font.name = name
+    run._r.get_or_add_rPr().set(qn('w:rFonts'), qn('w:eastAsia'))
+    run._r.get_or_add_rPr().rFonts.set(qn('w:eastAsia'), name)
+    run.font.size = Pt(size_pt)
+    run.bold = bold
+    if color_rgb:
+        run.font.color.rgb = color_rgb
+
 def create_docx(text_content):
     doc = Document()
     
+    # 페이지 여백 설정
     for section in doc.sections:
         section.top_margin = Inches(0.8)
         section.bottom_margin = Inches(0.8)
         section.left_margin = Inches(0.8)
         section.right_margin = Inches(0.8)
         
-    title = doc.add_heading("삼성생명 기획팀 동향분석 보고서", level=0)
-    title.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    # 문서 제목
+    title_p = doc.add_paragraph()
+    title_p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    title_p.paragraph_format.space_after = Pt(12)
+    title_run = title_p.add_run("삼성생명 기획팀 동향분석 보고서")
+    set_font_style(title_run, name="바탕", size_pt=18, bold=True, color_rgb=RGBColor(0, 51, 102))
     
     lines = text_content.split("\n")
     for line in lines:
@@ -113,30 +128,47 @@ def create_docx(text_content):
             continue
             
         if line.startswith("# "):
-            doc.add_heading(line.replace("# ", "").strip(), level=1)
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(14)
+            p.paragraph_format.space_after = Pt(6)
+            run = p.add_run(line.replace("# ", "").strip())
+            set_font_style(run, name="바탕", size_pt=16, bold=True, color_rgb=RGBColor(0, 51, 102))
         elif line.startswith("## "):
-            doc.add_heading(line.replace("## ", "").strip(), level=2)
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(10)
+            p.paragraph_format.space_after = Pt(4)
+            run = p.add_run(line.replace("## ", "").strip())
+            set_font_style(run, name="바탕", size_pt=15, bold=True)
         elif stripped.startswith("□") or stripped.startswith("ㅁ"):
             # 대항목 (네모)
             p = doc.add_paragraph()
             p.paragraph_format.space_before = Pt(8)
-            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.space_after = Pt(4)
+            p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
-            run.bold = True
-            run.font.size = Pt(11)
-            run.font.color.rgb = RGBColor(0, 51, 102) # 사내 표준 네이비
+            set_font_style(run, name="바탕", size_pt=15, bold=True, color_rgb=RGBColor(0, 51, 102))
         elif stripped.startswith("-"):
             # 중항목 (찍)
-            p = doc.add_paragraph(stripped)
+            p = doc.add_paragraph()
             p.paragraph_format.left_indent = Inches(0.2)
-            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.space_after = Pt(3)
+            p.paragraph_format.line_spacing = 1.25
+            run = p.add_run(stripped)
+            set_font_style(run, name="바탕", size_pt=15, bold=False)
         elif stripped.startswith("·") or stripped.startswith("."):
             # 소항목 (땡)
-            p = doc.add_paragraph(stripped)
+            p = doc.add_paragraph()
             p.paragraph_format.left_indent = Inches(0.4)
-            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.space_after = Pt(3)
+            p.paragraph_format.line_spacing = 1.25
+            run = p.add_run(stripped)
+            set_font_style(run, name="바탕", size_pt=15, bold=False)
         else:
-            doc.add_paragraph(stripped)
+            p = doc.add_paragraph()
+            p.paragraph_format.space_after = Pt(3)
+            p.paragraph_format.line_spacing = 1.25
+            run = p.add_run(stripped)
+            set_font_style(run, name="바탕", size_pt=15, bold=False)
                 
     doc_io = io.BytesIO()
     doc.save(doc_io)
@@ -185,7 +217,7 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
     if not user_input.strip():
         st.warning("분석할 기사 내용이나 URL을 입력해주세요.")
     else:
-        with st.spinner("사내 기획팀 규격(□ / - / ·)에 맞추어 2페이지 동향분석 보고서를 작성 중입니다..."):
+        with st.spinner("사내 기획팀 규격(바탕체 15pt 기준 최대 2줄 압축)에 맞추어 2페이지 동향분석 보고서를 작성 중입니다..."):
             response_success = False
             last_error_msg = ""
 
