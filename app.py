@@ -23,25 +23,26 @@ st.set_page_config(
 SYSTEM_INSTRUCTION = """
 # Role
 당신은 삼성생명 기획팀의 "동향분석 및 보고서 작성 전문 Agent"입니다.
-국내 1위 생명보험사인 삼성생명의 기획팀 직원 관점에서 금융/보험/경제 동향 기사를 분석하고, 정교하고 전략적인 2페이지 규격 보고서를 작성하는 역할을 수행합니다.
+국내 1위 생명보험사인 삼성생명의 기획팀 직원 관점에서 금융/보험/경제 동향 기사를 실시간으로 분석하고, 정교하고 전략적인 규격 보고서를 작성하는 역할을 수행합니다.
 
 # Core Workflow (4단계 보고서 작성 프로세스)
-[Step 1. 메인 기사 분석]
-- 입력된 URL 본문 또는 텍스트를 분석하여 주요 사실관계, 핵심 수치, 이슈 맥락을 정확히 파악합니다.
+[Step 1. 메인 기사 실시간 분석]
+- 사용자가 입력한 URL 또는 본문을 Google 검색 기능을 통해 실시간으로 확인하고 주요 사실관계, 핵심 수치, 이슈 맥락을 정확히 파악합니다.
+- 반드시 입력된 특정 기사의 실제 사실관계에 기반하여 작성해야 하며, 예시 템플릿의 문구를 그대로 복사해 출력하지 마십시오.
 
 [Step 2. 심층 데이터 분석 및 배경 맥락 연계]
-- 메인 이슈 관련 최신 업계 동향 및 금융당국 규제/제도 수치 (CSM, K-ICS 비율, 할인율, 무·저해지 해약률 등)
+- 메인 이슈 관련 최신 업계 동향 및 금융당국 규제/제도 수치 (CSM, K-ICS 비율, 할인율, 무·저해지 해약률 등) 연계 분석
 - 타 생보사 대응 현황 및 삼성생명 관련 사업/재무 비교 데이터 (CSM 잔액/신계약, 순이익, K-ICS, FC 규모 등)
 
 [Step 3. 삼성생명 전략적 시사점 도출]
 - 업계 1위 삼성생명 기획팀 관점에서 'So What(전략적 영향 및 대응 방안)'을 도출합니다.
-- 아래 4대 핵심 요소를 반드시 포함하여 전략을 수립합니다:
+- 아래 4대 핵심 요소를 반드시 해당 기사 주제에 맞게 맞춤형으로 도출합니다:
   1) CSM(계약서비스마진) 질적 가치 확보 및 고마진 상품 포트폴리오 전략 (CSM 배수 관리 등)
   2) K-ICS(신지급여력제도) 비율 관리, 자본 효율성 극대화 및 장기 ALM 운용 전략
   3) 독보적 전속 FC 인프라 기반 컨설팅 역량 및 AI/디지털 영업 지원 차별화
   4) '2035 라이프케어 복합금융 플랫폼' 연결: 보험을 넘어 고객의 평생 리스크·건강·자산을 관리하는 삼성생명의 총체적 복합금융 생태계 구축
 
-[Step 4. 규격화된 2페이지 보고서 작성]
+[Step 4. 규격화된 보고서 작성]
 - 아래 Output Structure & Formatting Rules를 철저히 준수하여 보고서를 출력합니다.
 
 # Output Structure & Formatting Rules (출력 및 작성 규격)
@@ -53,22 +54,22 @@ SYSTEM_INSTRUCTION = """
    - 문체: 명확하고 격식 있는 보고서용 개조식 명사형 종결문 (~확대, ~추진, ~견지, ~구축, ~달성, ~확보, ~도모 등)
    - [문장 길이 및 줄바꿈 규칙]: 바탕체 15pt 기준 각 항목(□, -, ·)의 문장이 한 줄에 다 들어오거나 최대 2줄을 넘지 않도록 고밀도·컴팩트하게 서술
 
-2. 보고서 본문 구성 (표 없이 즉시 네모로 시작):
+2. 보고서 본문 구성:
 ---
-□ [요약] 이슈 핵심 제목
-  - (하위 팩트와 수치를 포괄하는 핵심 사실관계 한 문장 요약 명사형 종결)
-    · 메인 기사 주요 팩트 및 일자/배경 세부 내용
+□ [요약] (입력된 실제 기사의 핵심 제목)
+  - (입력된 기사의 팩트와 수치를 포괄하는 핵심 사실관계 한 문장 요약 명사형 종결)
+    · 메인 기사 주요 사실관계 및 일자/배경 세부 내용
     · 삼성생명 및 1위사 관련 세부 통계/지표 데이터
-  - (하위 시장 변화 및 타사 동향을 포괄하는 업계 판도 한 문장 요약 명사형 종결)
+  - (시장 변화 및 타사 동향을 포괄하는 업계 판도 한 문장 요약 명사형 종결)
     · 경쟁사 약진 및 공격적 판매 전략 세부 동향
     · 금융당국 규제/제도 기조 및 재무건전성 영향 분석
 
 □ [시사점] 초격차 확대를 위한 4대 핵심 전략 방향
-  - (하위 CSM 및 K-ICS 세부 과제를 포괄하는 자본/상품 전략 한 문장 요약 명사형 종결)
-    · 상품 세분화 및 시니어 특화 라인업을 통한 신계약 CSM 질적 가치 제고
-    · 장기 ALM 매칭 정밀화 및 글로벌 대체투자 다변화를 통한 최고 K-ICS 비율 견지
-  - (하위 영업망 및 복합플랫폼 과제를 포괄하는 인프라/신성장 전략 한 문장 요약 명사형 종결)
-    · 4.5만 독보적 FC망 기반 AI 컨설팅 인프라 탑재 및 계약 유지율(예실차) 관리 강화
+  - (해당 이슈에 맞춘 자본/상품 전략 한 문장 요약 명사형 종결)
+    · 상품 세분화 및 특화 라인업을 통한 신계약 CSM 질적 가치 제고
+    · 장기 ALM 매칭 정밀화 및 자산운용 다변화를 통한 최고 K-ICS 비율 견지
+  - (해당 이슈에 맞춘 인프라/신성장 전략 한 문장 요약 명사형 종결)
+    · 독보적 전속 FC망 기반 AI 컨설팅 인프라 탑재 및 계약 유지율(예실차) 관리 강화
     · 보험을 넘어 평생 리스크·건강·자산을 관리하는 '2035 라이프케어 복합금융 플랫폼' 생태계 조기 선점
 
 # 참고 자료 및 심층 출처 리스트 (References & Deep Dive Data)
@@ -102,7 +103,6 @@ def set_font_style(run, name="바탕체", size_pt=15, bold=False, color_rgb=None
 def create_docx(text_content):
     doc = Document()
     
-    # 페이지 여백 설정
     for section in doc.sections:
         section.top_margin = Inches(0.8)
         section.bottom_margin = Inches(0.8)
@@ -128,7 +128,6 @@ def create_docx(text_content):
             run = p.add_run(line.replace("## ", "").strip())
             set_font_style(run, name="바탕체", size_pt=15, bold=True)
         elif stripped.startswith("□") or stripped.startswith("ㅁ"):
-            # 대항목 (네모)
             p = doc.add_paragraph()
             p.paragraph_format.space_before = Pt(10)
             p.paragraph_format.space_after = Pt(4)
@@ -136,16 +135,14 @@ def create_docx(text_content):
             run = p.add_run(stripped)
             set_font_style(run, name="바탕체", size_pt=15, bold=True, color_rgb=RGBColor(0, 51, 102))
         elif stripped.startswith("-"):
-            # 중항목 (찍)
-            p = doc.add_paragraph()
+            p = doc.add_paragraph(stripped)
             p.paragraph_format.left_indent = Inches(0.2)
             p.paragraph_format.space_after = Pt(3)
             p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
             set_font_style(run, name="바탕체", size_pt=15, bold=False)
         elif stripped.startswith("·") or stripped.startswith("."):
-            # 소항목 (땡)
-            p = doc.add_paragraph()
+            p = doc.add_paragraph(stripped)
             p.paragraph_format.left_indent = Inches(0.4)
             p.paragraph_format.space_after = Pt(3)
             p.paragraph_format.line_spacing = 1.25
@@ -183,7 +180,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ----------------------------------------------------
-# 5. 메인 앱 화면 및 API 호출
+# 5. 메인 앱 화면 및 API 호출 (Google Search Grounding 활성화)
 # ----------------------------------------------------
 api_key = st.secrets.get("GEMINI_API_KEY")
 if not api_key:
@@ -193,30 +190,32 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 st.title("📊 삼성생명 기획팀 동향분석 Agent")
-st.caption("기사 URL 또는 본문 텍스트를 입력하면 사내 표준 보고서 및 Word/TXT 파일을 생성합니다.")
+st.caption("기사 URL 또는 본문 텍스트를 입력하면 실시간 분석을 통해 사내 표준 보고서 및 Word/TXT 파일을 생성합니다.")
 
 user_input = st.text_area(
     "분석할 기사 내용 또는 기사 URL을 입력하세요:",
     height=150,
-    placeholder="예: 기사 전문을 붙여넣거나 핵심 이슈 텍스트 및 링크를 입력하세요."
+    placeholder="예: 기사 전문을 붙여넣거나 분석할 기사의 웹 링크(URL)를 입력하세요."
 )
 
 if st.button("보고서 생성 시작", type="primary", use_container_width=True):
     if not user_input.strip():
         st.warning("분석할 기사 내용이나 URL을 입력해주세요.")
     else:
-        with st.spinner("사내 기획팀 규격(바탕체 15pt 기준 최대 2줄 압축)에 맞추어 동향분석 보고서를 작성 중입니다..."):
+        with st.spinner("기사를 실시간으로 분석하여 기획팀 동향분석 보고서를 작성 중입니다..."):
             response_success = False
             last_error_msg = ""
 
             for attempt in range(3):
                 try:
+                    # Google Search 도구를 연결하여 URL/실시간 기사 검색 수행
                     response = client.models.generate_content(
                         model="gemini-3.6-flash",
-                        contents=user_input,
+                        contents=f"다음 입력된 기사/URL을 실시간 검색하여 심층 분석하고 보고서를 작성하십시오:\n\n{user_input}",
                         config=types.GenerateContentConfig(
                             system_instruction=SYSTEM_INSTRUCTION,
-                            temperature=0.25
+                            temperature=0.2,
+                            tools=[types.Tool(google_search=types.GoogleSearch())]
                         )
                     )
                     st.session_state["last_report"] = response.text
