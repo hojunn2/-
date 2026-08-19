@@ -44,31 +44,33 @@ SYSTEM_INSTRUCTION = """
 - 아래 Output Structure & Formatting Rules를 철저히 준수하여 보고서를 출력합니다.
 
 # Output Structure & Formatting Rules (출력 및 작성 규격)
-1. 문체 및 작성 원칙:
-   - 위계 구조: `ㅁ` (대항목) -> `-` (중항목) -> `.` (소항목)
-   - 대항목 명칭: 반드시 `ㅁ [요약]` 및 `ㅁ [시사점]` 표기 준수
+1. 문체 및 특수기호 위계 구조 (엄격 준수):
+   - 대항목 (네모): `□`
+   - 중항목 (찍): `-`
+   - 소항목 (땡): `·` (가운데 점 기호 사용)
+   - 대항목 표기: 반드시 `□ [요약]` 및 `□ [시사점]` 표기 준수
    - 문체: 명확하고 격식 있는 보고서용 개조식 명사형 종결문 (~확대, ~추진, ~견지, ~구축, ~달성 등)
-   - 문장 길이 및 밀도: 워드 기준 15pt로 작성 시 각 항목이 한 줄~최대 2줄 내로 들어오도록 불필요한 수식어를 배제하고 고밀도·컴팩트하게 서술
+   - 문장 길이 및 밀도: 워드 기준 15pt 작성 시 각 항목이 한 줄~최대 2줄 내로 들어오도록 불필요한 수식어를 배제하고 고밀도·컴팩트하게 서술
 
 2. 보고서 본문 구성:
 ---
 # [Page 1] 동향 보고서
 
-ㅁ [요약] 이슈 핵심 제목
+□ [요약] 이슈 핵심 제목
   - 메인 기사로 확인된 핵심 사실관계 (수치 및 일자 포함)
-    . 삼성생명 및 1위사 관련 세부 통계 데이터
-    . 신계약 드라이브 및 주요 세부 지표
+    · 삼성생명 및 1위사 관련 세부 통계 데이터
+    · 신계약 드라이브 및 주요 세부 지표
   - 업계/시장 변화 및 주요 타사 대응 동향
-    . 경쟁사 약진 및 판매 전략 동향
-    . 금융당국 규제/제도 기조 및 건전성 영향
+    · 경쟁사 약진 및 판매 전략 동향
+    · 금융당국 규제/제도 기조 및 건전성 영향
 
-ㅁ [시사점] 초격차 확대를 위한 4대 핵심 전략 방향
+□ [시사점] 초격차 확대를 위한 4대 핵심 전략 방향
   - CSM 질적 가치 제고 및 업계 최고 K-ICS 기반 자본 효율성 극대화
-    . 상품 세분화 및 시니어 특화 라인업을 통한 신계약 CSM 배수 관리
-    . 장기 ALM 매칭 정밀화 및 글로벌 대체투자·배당수익 다변화
+    · 상품 세분화 및 시니어 특화 라인업을 통한 신계약 CSM 배수 관리
+    · 장기 ALM 매칭 정밀화 및 글로벌 대체투자·배당수익 다변화
   - 4.5만 전속 FC 파워 및 '2035 라이프케어 복합금융 플랫폼' 생태계 선점
-    . 독보적 FC망 기반 AI 컨설팅 인프라 탑재 및 유지율 개선(예실차 관리)
-    . 보험을 넘어 고객의 평생 리스크·건강·자산을 관리하는 총체적 복합금융 생태계 구축
+    · 독보적 FC망 기반 AI 컨설팅 인프라 탑재 및 유지율 개선(예실차 관리)
+    · 보험을 넘어 고객의 평생 리스크·건강·자산을 관리하는 총체적 복합금융 생태계 구축
 
 <표 1> 대형 생보 3사(또는 타사/이슈 대상 vs 삼성생명) 주요 재무 및 경영 지표 비교
 (Markdown Table 형식으로 작성: 지표 구분 | 타사 1 | 타사 2 | 삼성생명 (1위) | 시사점 및 격차 분석)
@@ -78,11 +80,11 @@ SYSTEM_INSTRUCTION = """
 
 1. [메인 기사 출처]
   - 출처명: 기사 제목
-    . 핵심 요약: 1~2줄 컴팩트 요약
+    · 핵심 요약: 1~2줄 컴팩트 요약
 
 2. [심층 배경 및 비교 데이터]
   - 주요 지표 및 제도적 맥락
-    . 핵심 데이터: 1~2줄 핵심 수치 요약
+    · 핵심 데이터: 1~2줄 핵심 수치 요약
 
 3. [기획팀 종합 평가 및 향후 모니터링 포인트]
   - 초격차 지배력: 시장 리더십 및 절대 규모 격차 평가
@@ -91,7 +93,7 @@ SYSTEM_INSTRUCTION = """
 """
 
 # ----------------------------------------------------
-# 3. Word 문서 생성 유틸리티
+# 3. Word 문서 생성 유틸리티 (특수기호 서식 지원)
 # ----------------------------------------------------
 def create_docx(text_content):
     doc = Document()
@@ -107,25 +109,35 @@ def create_docx(text_content):
     
     lines = text_content.split("\n")
     for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+            
         if line.startswith("# "):
-            doc.add_heading(line.replace("# ", ""), level=1)
+            doc.add_heading(line.replace("# ", "").strip(), level=1)
         elif line.startswith("## "):
-            doc.add_heading(line.replace("## ", ""), level=2)
-        elif line.startswith("ㅁ"):
+            doc.add_heading(line.replace("## ", "").strip(), level=2)
+        elif stripped.startswith("□") or stripped.startswith("ㅁ"):
+            # 대항목 (네모)
             p = doc.add_paragraph()
-            run = p.add_run(line)
+            p.paragraph_format.space_before = Pt(8)
+            p.paragraph_format.space_after = Pt(2)
+            run = p.add_run(stripped)
             run.bold = True
             run.font.size = Pt(11)
-            run.font.color.rgb = RGBColor(0, 51, 102)
-        elif line.strip().startswith("-"):
-            p = doc.add_paragraph(line)
+            run.font.color.rgb = RGBColor(0, 51, 102) # 사내 표준 네이비
+        elif stripped.startswith("-"):
+            # 중항목 (찍)
+            p = doc.add_paragraph(stripped)
             p.paragraph_format.left_indent = Inches(0.2)
-        elif line.strip().startswith("."):
-            p = doc.add_paragraph(line)
+            p.paragraph_format.space_after = Pt(2)
+        elif stripped.startswith("·") or stripped.startswith("."):
+            # 소항목 (땡)
+            p = doc.add_paragraph(stripped)
             p.paragraph_format.left_indent = Inches(0.4)
+            p.paragraph_format.space_after = Pt(2)
         else:
-            if line.strip():
-                doc.add_paragraph(line)
+            doc.add_paragraph(stripped)
                 
     doc_io = io.BytesIO()
     doc.save(doc_io)
@@ -162,7 +174,7 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 st.title("📊 삼성생명 기획팀 동향분석 Agent")
-st.caption("기사 URL 또는 본문 텍스트를 입력하면 정규 2페이지 보고서 및 Word/TXT 파일을 생성합니다.")
+st.caption("기사 URL 또는 본문 텍스트를 입력하면 사내 표준 2페이지 보고서 및 Word/TXT 파일을 생성합니다.")
 
 user_input = st.text_area(
     "분석할 기사 내용 또는 기사 URL을 입력하세요:",
@@ -174,7 +186,7 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
     if not user_input.strip():
         st.warning("분석할 기사 내용이나 URL을 입력해주세요.")
     else:
-        with st.spinner("기획팀 규격에 맞추어 2페이지 동향분석 보고서를 작성 중입니다..."):
+        with st.spinner("사내 기획팀 규격(□ / - / ·)에 맞추어 2페이지 동향분석 보고서를 작성 중입니다..."):
             response_success = False
             last_error_msg = ""
 
@@ -185,7 +197,7 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
                         contents=user_input,
                         config=types.GenerateContentConfig(
                             system_instruction=SYSTEM_INSTRUCTION,
-                            temperature=0.3
+                            temperature=0.25 # 서식 준수 정밀도 극대화
                         )
                     )
                     st.session_state["last_report"] = response.text
