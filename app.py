@@ -178,11 +178,10 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
             response_success = False
             last_error_msg = ""
 
-            # 무료 티어에서 안정적으로 지원되는 gemini-2.5-flash 모델 사용
             for attempt in range(3):
                 try:
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-3.6-flash",
                         contents=user_input,
                         config=types.GenerateContentConfig(
                             system_instruction=SYSTEM_INSTRUCTION,
@@ -194,7 +193,6 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
                     break
                 except Exception as e:
                     last_error_msg = str(e)
-                    # 일시적인 503 과부하 또는 429 쿼터 초과 시 대기 후 재시도
                     if any(err in last_error_msg for err in ["503", "UNAVAILABLE", "429"]):
                         time.sleep(3)
                         continue
