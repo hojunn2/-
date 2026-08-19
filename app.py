@@ -152,7 +152,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ----------------------------------------------------
-# 5. 메인 앱 화면 및 API 호출 (Fallback & Retry 로직 적용)
+# 5. 메인 앱 화면 및 API 호출
 # ----------------------------------------------------
 api_key = st.secrets.get("GEMINI_API_KEY")
 if not api_key:
@@ -175,43 +175,33 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
         st.warning("분석할 기사 내용이나 URL을 입력해주세요.")
     else:
         with st.spinner("기획팀 규격에 맞추어 2페이지 동향분석 보고서를 작성 중입니다..."):
-            # 우선순위 순서대로 모델 시도
-            models_to_try = [
-                "gemini-2.5-pro",
-                "gemini-2.5-flash",
-                "gemini-1.5-pro",
-                "gemini-1.5-flash"
-            ]
             response_success = False
             last_error_msg = ""
 
-            for model_name in models_to_try:
-                for attempt in range(2):  # 각 모델별 2회 시도
-                    try:
-                        response = client.models.generate_content(
-                            model=model_name,
-                            contents=user_input,
-                            config=types.GenerateContentConfig(
-                                system_instruction=SYSTEM_INSTRUCTION,
-                                temperature=0.3
-                            )
+            # 최대 3회 재시도 (트래픽 과부하 대비)
+            for attempt in range(3):
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-2.5-pro",
+                        contents=user_input,
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_INSTRUCTION,
+                            temperature=0.3
                         )
-                        st.session_state["last_report"] = response.text
-                        response_success = True
-                        break
-                    except Exception as e:
-                        last_error_msg = str(e)
-                        # 일시적인 503 또는 과부하 시 2초 대기 후 재시도
-                        if "503" in last_error_msg or "UNAVAILABLE" in last_error_msg:
-                            time.sleep(2)
-                            continue
-                        else:
-                            break
-                if response_success:
+                    )
+                    st.session_state["last_report"] = response.text
+                    response_success = True
                     break
+                except Exception as e:
+                    last_error_msg = str(e)
+                    if "503" in last_error_msg or "UNAVAILABLE" in last_error_msg:
+                        time.sleep(3)
+                        continue
+                    else:
+                        break
 
             if not response_success:
-                st.error(f"구글 API 서버 응답 지연으로 생성을 완료하지 못했습니다: {last_error_msg}")
+                st.error(f"오류가 발생했습니다: {last_error_msg}")
 
 # ----------------------------------------------------
 # 6. 생성된 보고서 표시 및 다운로드
