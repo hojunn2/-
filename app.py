@@ -179,11 +179,13 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
         with st.spinner("기획팀 규격에 맞추어 2페이지 동향분석 보고서를 작성 중입니다..."):
             try:
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=user_input,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        temperature=0.3 # 보고서의 정밀성 및 규격 유지를 위해 낮은 온도 설정
+    model="gemini-3.6-flash",
+    contents=user_input,
+    config=types.GenerateContentConfig(
+        system_instruction=SYSTEM_INSTRUCTION,
+        temperature=0.3 # 보고서의 정밀성 및 규격 유지를 위해 낮은 온도 설정
+    )
+) 
                     )
                 )
                 report_text = response.text
