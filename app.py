@@ -46,16 +46,15 @@ SYSTEM_INSTRUCTION = """
 
 # Output Structure & Formatting Rules (출력 및 작성 규격)
 1. 문체 및 특수기호 위계 구조 원칙 (엄격 준수):
+   - [Page 1], [Page 2] 같은 페이지 라벨이나 <표 1> 같은 표는 일체 작성하지 않습니다.
    - 대항목 (네모): `□` -> 대주제 및 핵심 테마 명시 (반드시 `□ [요약]` 및 `□ [시사점]` 표기 준수)
    - 중항목 (찍): `-` -> 반드시 하위 소항목(·)들의 내용을 포괄하는 간결하고 압축적인 '한 문장 요약/헤드라인' 형태로 작성하며 명사형 종결
    - 소항목 (땡): `·` -> 상위 중항목(-)을 뒷받침하는 구체적인 세부 팩트, 통계 수치, 실행 과제, 메커니즘을 상세히 서술
    - 문체: 명확하고 격식 있는 보고서용 개조식 명사형 종결문 (~확대, ~추진, ~견지, ~구축, ~달성, ~확보, ~도모 등)
-   - **[문장 길이 및 줄바꿈 규칙]**: 워드 기준 15pt로 작성 시 각 항목(□, -, ·)의 문장이 **한 줄에 다 들어오거나 최대 2줄을 넘지 않도록** 불필요한 수식어를 배제하고 고밀도·컴팩트하게 서술
+   - [문장 길이 및 줄바꿈 규칙]: 바탕체 15pt 기준 각 항목(□, -, ·)의 문장이 한 줄에 다 들어오거나 최대 2줄을 넘지 않도록 고밀도·컴팩트하게 서술
 
-2. 보고서 본문 구성:
+2. 보고서 본문 구성 (표 없이 즉시 네모로 시작):
 ---
-# [Page 1] 동향 보고서
-
 □ [요약] 이슈 핵심 제목
   - (하위 팩트와 수치를 포괄하는 핵심 사실관계 한 문장 요약 명사형 종결)
     · 메인 기사 주요 팩트 및 일자/배경 세부 내용
@@ -72,11 +71,7 @@ SYSTEM_INSTRUCTION = """
     · 4.5만 독보적 FC망 기반 AI 컨설팅 인프라 탑재 및 계약 유지율(예실차) 관리 강화
     · 보험을 넘어 평생 리스크·건강·자산을 관리하는 '2035 라이프케어 복합금융 플랫폼' 생태계 조기 선점
 
-<표 1> 대형 생보 3사(또는 타사/이슈 대상 vs 삼성생명) 주요 재무 및 경영 지표 비교
-(Markdown Table 형식으로 작성: 지표 구분 | 타사 1 | 타사 2 | 삼성생명 (1위) | 시사점 및 격차 분석)
-
----
-# [Page 2] 참고 자료 및 심층 출처 리스트 (References & Deep Dive Data)
+# 참고 자료 및 심층 출처 리스트 (References & Deep Dive Data)
 
 1. [메인 기사 출처]
   - 출처명: 기사 제목
@@ -95,7 +90,7 @@ SYSTEM_INSTRUCTION = """
 # ----------------------------------------------------
 # 3. Word 문서 생성 유틸리티 (바탕체, 15pt 서식 적용)
 # ----------------------------------------------------
-def set_font_style(run, name="바탕", size_pt=15, bold=False, color_rgb=None):
+def set_font_style(run, name="바탕체", size_pt=15, bold=False, color_rgb=None):
     run.font.name = name
     run._r.get_or_add_rPr().set(qn('w:rFonts'), qn('w:eastAsia'))
     run._r.get_or_add_rPr().rFonts.set(qn('w:eastAsia'), name)
@@ -114,13 +109,6 @@ def create_docx(text_content):
         section.left_margin = Inches(0.8)
         section.right_margin = Inches(0.8)
         
-    # 문서 제목
-    title_p = doc.add_paragraph()
-    title_p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    title_p.paragraph_format.space_after = Pt(12)
-    title_run = title_p.add_run("삼성생명 기획팀 동향분석 보고서")
-    set_font_style(title_run, name="바탕", size_pt=18, bold=True, color_rgb=RGBColor(0, 51, 102))
-    
     lines = text_content.split("\n")
     for line in lines:
         stripped = line.strip()
@@ -129,24 +117,24 @@ def create_docx(text_content):
             
         if line.startswith("# "):
             p = doc.add_paragraph()
-            p.paragraph_format.space_before = Pt(14)
+            p.paragraph_format.space_before = Pt(16)
             p.paragraph_format.space_after = Pt(6)
             run = p.add_run(line.replace("# ", "").strip())
-            set_font_style(run, name="바탕", size_pt=16, bold=True, color_rgb=RGBColor(0, 51, 102))
+            set_font_style(run, name="바탕체", size_pt=16, bold=True, color_rgb=RGBColor(0, 51, 102))
         elif line.startswith("## "):
             p = doc.add_paragraph()
-            p.paragraph_format.space_before = Pt(10)
+            p.paragraph_format.space_before = Pt(12)
             p.paragraph_format.space_after = Pt(4)
             run = p.add_run(line.replace("## ", "").strip())
-            set_font_style(run, name="바탕", size_pt=15, bold=True)
+            set_font_style(run, name="바탕체", size_pt=15, bold=True)
         elif stripped.startswith("□") or stripped.startswith("ㅁ"):
             # 대항목 (네모)
             p = doc.add_paragraph()
-            p.paragraph_format.space_before = Pt(8)
+            p.paragraph_format.space_before = Pt(10)
             p.paragraph_format.space_after = Pt(4)
             p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
-            set_font_style(run, name="바탕", size_pt=15, bold=True, color_rgb=RGBColor(0, 51, 102))
+            set_font_style(run, name="바탕체", size_pt=15, bold=True, color_rgb=RGBColor(0, 51, 102))
         elif stripped.startswith("-"):
             # 중항목 (찍)
             p = doc.add_paragraph()
@@ -154,7 +142,7 @@ def create_docx(text_content):
             p.paragraph_format.space_after = Pt(3)
             p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
-            set_font_style(run, name="바탕", size_pt=15, bold=False)
+            set_font_style(run, name="바탕체", size_pt=15, bold=False)
         elif stripped.startswith("·") or stripped.startswith("."):
             # 소항목 (땡)
             p = doc.add_paragraph()
@@ -162,13 +150,13 @@ def create_docx(text_content):
             p.paragraph_format.space_after = Pt(3)
             p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
-            set_font_style(run, name="바탕", size_pt=15, bold=False)
+            set_font_style(run, name="바탕체", size_pt=15, bold=False)
         else:
             p = doc.add_paragraph()
             p.paragraph_format.space_after = Pt(3)
             p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
-            set_font_style(run, name="바탕", size_pt=15, bold=False)
+            set_font_style(run, name="바탕체", size_pt=15, bold=False)
                 
     doc_io = io.BytesIO()
     doc.save(doc_io)
@@ -205,7 +193,7 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 st.title("📊 삼성생명 기획팀 동향분석 Agent")
-st.caption("기사 URL 또는 본문 텍스트를 입력하면 사내 표준 2페이지 보고서 및 Word/TXT 파일을 생성합니다.")
+st.caption("기사 URL 또는 본문 텍스트를 입력하면 사내 표준 보고서 및 Word/TXT 파일을 생성합니다.")
 
 user_input = st.text_area(
     "분석할 기사 내용 또는 기사 URL을 입력하세요:",
@@ -217,7 +205,7 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
     if not user_input.strip():
         st.warning("분석할 기사 내용이나 URL을 입력해주세요.")
     else:
-        with st.spinner("사내 기획팀 규격(바탕체 15pt 기준 최대 2줄 압축)에 맞추어 2페이지 동향분석 보고서를 작성 중입니다..."):
+        with st.spinner("사내 기획팀 규격(바탕체 15pt 기준 최대 2줄 압축)에 맞추어 동향분석 보고서를 작성 중입니다..."):
             response_success = False
             last_error_msg = ""
 
