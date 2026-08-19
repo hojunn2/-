@@ -178,11 +178,11 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
             response_success = False
             last_error_msg = ""
 
-            # 최대 3회 재시도 (트래픽 과부하 대비)
+            # gemini-3.1-pro-preview 모델 호출 및 일시 오류 시 재시도
             for attempt in range(3):
                 try:
                     response = client.models.generate_content(
-                        model="gemini-2.5-pro",
+                        model="gemini-3.1-pro-preview",
                         contents=user_input,
                         config=types.GenerateContentConfig(
                             system_instruction=SYSTEM_INSTRUCTION,
