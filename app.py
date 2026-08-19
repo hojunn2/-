@@ -156,7 +156,7 @@ if not st.session_state["authenticated"]:
 # ----------------------------------------------------
 api_key = st.secrets.get("GEMINI_API_KEY")
 if not api_key:
-    st.error("GEMINI_API_KEY가 설정되지 않았습니다.")
+    st.error("GEMINI_API_KEY가 설정되지 않았습니다. Secrets를 확인해주세요.")
     st.stop()
 
 client = genai.Client(api_key=api_key)
@@ -178,11 +178,11 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
             response_success = False
             last_error_msg = ""
 
-            # gemini-3.1-pro-preview 모델 호출 및 일시 오류 시 재시도
+            # 무료 티어에서 안정적으로 지원되는 gemini-2.5-flash 모델 사용
             for attempt in range(3):
                 try:
                     response = client.models.generate_content(
-                        model="gemini-3.1-pro-preview",
+                        model="gemini-2.5-flash",
                         contents=user_input,
                         config=types.GenerateContentConfig(
                             system_instruction=SYSTEM_INSTRUCTION,
@@ -194,14 +194,15 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
                     break
                 except Exception as e:
                     last_error_msg = str(e)
-                    if "503" in last_error_msg or "UNAVAILABLE" in last_error_msg:
+                    # 일시적인 503 과부하 또는 429 쿼터 초과 시 대기 후 재시도
+                    if any(err in last_error_msg for err in ["503", "UNAVAILABLE", "429"]):
                         time.sleep(3)
                         continue
                     else:
                         break
 
             if not response_success:
-                st.error(f"오류가 발생했습니다: {last_error_msg}")
+                st.error(f"보고서 생성 중 오류가 발생했습니다: {last_error_msg}")
 
 # ----------------------------------------------------
 # 6. 생성된 보고서 표시 및 다운로드
