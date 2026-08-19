@@ -1,5 +1,8 @@
 import io
+import re
 import time
+import requests
+from bs4 import BeautifulSoup
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -18,23 +21,75 @@ st.set_page_config(
 )
 
 # ----------------------------------------------------
-# 2. Gem 시스템 지침 (Instructions) 설정
+# 2. 기사 본문 자동 추출 크롤러 유틸리티
+# ----------------------------------------------------
+def extract_article_content(user_text):
+    """
+    입력 텍스트에서 URL을 감지하면 실제 웹페이지 본문을 긁어오고,
+    일반 텍스트면 그대로 반환합니다.
+    """
+    url_pattern = re.compile(r'https?://[^\s]+')
+    urls = url_pattern.findall(user_text.strip())
+    
+    if not urls:
+        return user_text, None  # 일반 텍스트 입력
+
+    target_url = urls[0]
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    try:
+        res = requests.get(target_url, headers=headers, timeout=8)
+        res.raise_for_status()
+        res.encoding = res.apparent_encoding  # 한글 인코딩 자동 보정
+        
+        soup = BeautifulSoup(res.text, 'html.parser')
+        
+        # 불필요한 스크립트, 스타일, 광고 제거
+        for tag in soup(['script', 'style', 'header', 'footer', 'nav', 'aside', 'iframe']):
+            tag.decompose()
+            
+        # 1) 네이버 뉴스 특화 추출
+        naver_news = soup.find('article', id='dic_area') or soup.find('div', id='newsct_article') or soup.find('div', id='articeBody')
+        if naver_news:
+            return naver_news.get_text(separator='\n', strip=True), target_url
+            
+        # 2) 일반 언론사 본문 태그 탐색
+        article_tag = soup.find('article') or soup.find('div', class_=re.compile(r'article|news|content|body', re.I))
+        if article_tag:
+            paragraphs = [p.get_text(strip=True) for p in article_tag.find_all(['p', 'div']) if len(p.get_text(strip=True)) > 20]
+            if paragraphs:
+                return '\n'.join(paragraphs), target_url
+
+        # 3) 전체 텍스트 fallback
+        text_lines = [p.get_text(strip=True) for p in soup.find_all('p') if len(p.get_text(strip=True)) > 20]
+        if text_lines:
+            return '\n'.join(text_lines), target_url
+            
+        return user_text, target_url
+    except Exception as e:
+        # 크롤링 실패 시 원본 URL/텍스트 반환
+        return user_text, target_url
+
+# ----------------------------------------------------
+# 3. Gem 시스템 지침 (Instructions) 설정
 # ----------------------------------------------------
 SYSTEM_INSTRUCTION = """
 # Role
 당신은 삼성생명 기획팀의 "동향분석 및 보고서 작성 전문 Agent"입니다.
-국내 1위 생명보험사인 삼성생명의 기획팀 직원 관점에서 금융/보험/경제 동향 기사를 실시간으로 분석하고, 정교하고 전략적인 규격 보고서를 작성하는 역할을 수행합니다.
+국내 1위 생명보험사인 삼성생명의 기획팀 직원 관점에서 전달된 기사 본문을 정밀 분석하고, 정교하고 전략적인 규격 보고서를 작성하는 역할을 수행합니다.
 
 # Core Workflow (4단계 보고서 작성 프로세스)
-[Step 1. 메인 기사 실시간 분석]
-- 사용자가 입력한 URL 또는 본문을 Google 검색 기능을 통해 실시간으로 확인하고 주요 사실관계, 핵심 수치, 이슈 맥락을 정확히 파악합니다.
-- 반드시 입력된 특정 기사의 실제 사실관계에 기반하여 요약합니다.
+[Step 1. 메인 기사 원문 분석]
+- 제공된 실제 기사 원문(또는 텍스트)을 철저히 분석하여 주요 사실관계, 핵심 수치, 이슈 맥락을 정확히 파악합니다.
+- 절대로 임의로 사실을 날조하거나 다른 주제를 지어내지 말고, 제공된 기사 본문의 사실관계에 100% 입각하여 작성하십시오.
 
 [Step 2. 심층 데이터 분석 및 배경 맥락 연계]
 - 메인 이슈와 관련된 최신 업계 동향, 경쟁사 동향, 금융당국 규제/제도 기조, 시장 지표를 연계하여 다각도로 분석합니다.
 
 [Step 3. 삼성생명 맞춤형 전략적 시사점 도출]
-- 사전에 정해진 고정된 전략 프레임워크에 얽매이지 않고, **입력된 기사의 핵심 내용 및 이슈 성격(상품, 채널, 자산운용, 재무/자본, 규제 대응, 신사업, 디지털, 리스크 등)에 직접 부합하는 삼성생명의 전략적 영향과 대응 방향('So What')을 자율적·논리적으로 해석하여 도출**합니다.
+- 사전에 고정된 프레임워크에 얽매이지 않고, **입력된 기사의 핵심 내용 및 이슈 성격(상품, 채널, 자산운용, 재무/자본, 규제 대응, 신사업, 디지털, 리스크 등)에 직접 부합하는 삼성생명의 전략적 영향과 대응 방향('So What')을 자율적·논리적으로 해석하여 도출**합니다.
 - 국내 1위사로서 시장 지배력을 공고히 하고 위기/기회 요인에 선제 대응하기 위한 실질적인 액션 플랜을 제시합니다.
 
 [Step 4. 규격화된 보고서 작성]
@@ -51,8 +106,8 @@ SYSTEM_INSTRUCTION = """
 
 2. 보고서 본문 구성:
 ---
-□ [요약] (입력된 실제 기사의 핵심 제목)
-  - (입력된 기사의 팩트와 수치를 포괄하는 핵심 사실관계 한 문장 요약 명사형 종결)
+□ [요약] (분석된 실제 기사의 핵심 제목)
+  - (기사의 팩트와 수치를 포괄하는 핵심 사실관계 한 문장 요약 명사형 종결)
     · 메인 기사 주요 사실관계 및 일자/배경 세부 내용
     · 삼성생명 및 업계 관련 세부 통계/지표 데이터
   - (시장 변화 및 타사 동향을 포괄하는 업계 판도 한 문장 요약 명사형 종결)
@@ -84,7 +139,7 @@ SYSTEM_INSTRUCTION = """
 """
 
 # ----------------------------------------------------
-# 3. Word 문서 생성 유틸리티 (바탕체, 15pt 서식 적용)
+# 4. Word 문서 생성 유틸리티 (바탕체, 15pt 서식 적용)
 # ----------------------------------------------------
 def set_font_style(run, name="바탕체", size_pt=15, bold=False, color_rgb=None):
     run.font.name = name
@@ -156,7 +211,7 @@ def create_docx(text_content):
     return doc_io
 
 # ----------------------------------------------------
-# 4. 부서원 비밀번호 인증
+# 5. 부서원 비밀번호 인증
 # ----------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -175,7 +230,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ----------------------------------------------------
-# 5. 메인 앱 화면 및 API 호출 (Google Search Grounding 활성화)
+# 6. 메인 앱 화면 및 분석 실행 (크롤링 -> Gemini 분석)
 # ----------------------------------------------------
 api_key = st.secrets.get("GEMINI_API_KEY")
 if not api_key:
@@ -185,7 +240,7 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 st.title("📊 삼성생명 기획팀 동향분석 Agent")
-st.caption("기사 URL 또는 본문 텍스트를 입력하면 실시간 분석을 통해 사내 표준 보고서 및 Word/TXT 파일을 생성합니다.")
+st.caption("기사 URL 또는 본문 텍스트를 입력하면 실제 기사 본문을 정밀 분석하여 사내 표준 보고서 및 Word/TXT 파일을 생성합니다.")
 
 user_input = st.text_area(
     "분석할 기사 내용 또는 기사 URL을 입력하세요:",
@@ -197,7 +252,16 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
     if not user_input.strip():
         st.warning("분석할 기사 내용이나 URL을 입력해주세요.")
     else:
-        with st.spinner("기사를 실시간으로 분석하여 기획팀 동향분석 보고서를 작성 중입니다..."):
+        with st.spinner("기사 본문을 추출하고 기획팀 규격 보고서를 작성 중입니다..."):
+            # 1) URL인 경우 실제 본문 크롤링 수행
+            extracted_text, detected_url = extract_article_content(user_input)
+            
+            # 2) 프롬프트 구성 (실제 본문 내용 전달)
+            if detected_url:
+                prompt_content = f"다음은 입력된 URL({detected_url})에서 추출한 기사 본문입니다. 이 내용을 바탕으로 심층 분석 보고서를 작성하십시오:\n\n{extracted_text}"
+            else:
+                prompt_content = f"다음 기사 내용을 바탕으로 심층 분석 보고서를 작성하십시오:\n\n{extracted_text}"
+
             response_success = False
             last_error_msg = ""
 
@@ -205,11 +269,10 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
                 try:
                     response = client.models.generate_content(
                         model="gemini-3.6-flash",
-                        contents=f"다음 입력된 기사/URL을 실시간 검색하여 심층 분석하고 보고서를 작성하십시오:\n\n{user_input}",
+                        contents=prompt_content,
                         config=types.GenerateContentConfig(
                             system_instruction=SYSTEM_INSTRUCTION,
-                            temperature=0.2,
-                            tools=[types.Tool(google_search=types.GoogleSearch())]
+                            temperature=0.2
                         )
                     )
                     st.session_state["last_report"] = response.text
@@ -227,7 +290,7 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
                 st.error(f"보고서 생성 중 오류가 발생했습니다: {last_error_msg}")
 
 # ----------------------------------------------------
-# 6. 생성된 보고서 표시 및 다운로드
+# 7. 생성된 보고서 표시 및 다운로드
 # ----------------------------------------------------
 if "last_report" in st.session_state:
     st.divider()
