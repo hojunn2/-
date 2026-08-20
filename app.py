@@ -49,10 +49,12 @@ def extract_article_content(user_text):
         for tag in soup(['script', 'style', 'header', 'footer', 'nav', 'aside', 'iframe']):
             tag.decompose()
             
+        # 네이버 뉴스 태그
         naver_news = soup.find('article', id='dic_area') or soup.find('div', id='newsct_article') or soup.find('div', id='articeBody')
         if naver_news:
             return naver_news.get_text(separator='\n', strip=True), target_url
             
+        # 일반 언론사 본문 태그 탐색
         article_tag = soup.find('article') or soup.find('div', class_=re.compile(r'article|news|content|body', re.I))
         if article_tag:
             paragraphs = [p.get_text(strip=True) for p in article_tag.find_all(['p', 'div']) if len(p.get_text(strip=True)) > 20]
@@ -90,8 +92,8 @@ SYSTEM_INSTRUCTION = """
 
 # Output Structure & Formatting Rules (작성 원칙)
 1. 문체 및 길이 규칙 (장황함 배제):
-   - 문체: 완결된 서술어(~입니다, ~함)를 배제하고 명확한 개조식 명사형 종결문(~확대, ~추진, ~견지, ~구축, ~강화, ~대응, ~도모 등)으로만 작성
-   - 분량: 워드 15pt 기준 각 문장은 반드시 **1줄~최대 2줄 이내**로 작성 (3줄 이상 장황한 서술 엄격 금지)
+   - 문체: 완결된 서술어를 배제하고 명확한 개조식 명사형 종결문(~확대, ~추진, ~견지, ~구축, ~강화, ~대응, ~도모 등)으로만 작성
+   - 분량: 워드 15pt 기준 각 문장은 반드시 1줄~최대 2줄 이내로 작성
    - 위계 구조:
      * 대항목 (네모): `□` -> 대주제 명시 (반드시 `□ [요약]` 및 `□ [시사점]` 표기 준수)
      * 중항목 (찍): `-` -> 하위 소항목(·)들을 포괄하는 압축적 한 문장 요약 (명사형 종결)
@@ -132,7 +134,7 @@ SYSTEM_INSTRUCTION = """
 """
 
 # ----------------------------------------------------
-# 4. Word 문서 생성 유틸리티 (바탕체, 15pt 서식 적용)
+# 4. Word 문서 생성 유틸리티 (중복 방지 & 바탕체 15pt 적용)
 # ----------------------------------------------------
 def set_font_style(run, name="바탕체", size_pt=15, bold=False, color_rgb=None):
     run.font.name = name
@@ -146,6 +148,7 @@ def set_font_style(run, name="바탕체", size_pt=15, bold=False, color_rgb=None
 def create_docx(text_content):
     doc = Document()
     
+    # 페이지 여백 설정 (상하좌우 0.8인치)
     for section in doc.sections:
         section.top_margin = Inches(0.8)
         section.bottom_margin = Inches(0.8)
@@ -158,18 +161,23 @@ def create_docx(text_content):
         if not stripped:
             continue
             
+        # 1) 최상위 섹션 헤더 (#)
         if line.startswith("# "):
             p = doc.add_paragraph()
             p.paragraph_format.space_before = Pt(16)
             p.paragraph_format.space_after = Pt(6)
             run = p.add_run(line.replace("# ", "").strip())
-            set_font_style(run, name="바탕체", size_pt=16, bold=True, color_rgb=RGBColor(0, 51, 102))
+            set_font_style(run, name="바탕체", size_pt=15, bold=True, color_rgb=RGBColor(0, 51, 102))
+            
+        # 2) 보조 섹션 헤더 (##)
         elif line.startswith("## "):
             p = doc.add_paragraph()
             p.paragraph_format.space_before = Pt(12)
             p.paragraph_format.space_after = Pt(4)
             run = p.add_run(line.replace("## ", "").strip())
             set_font_style(run, name="바탕체", size_pt=15, bold=True)
+            
+        # 3) 대항목 (□ 네모)
         elif stripped.startswith("□") or stripped.startswith("ㅁ"):
             p = doc.add_paragraph()
             p.paragraph_format.space_before = Pt(10)
@@ -177,20 +185,35 @@ def create_docx(text_content):
             p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
             set_font_style(run, name="바탕체", size_pt=15, bold=True, color_rgb=RGBColor(0, 51, 102))
+            
+        # 4) 중항목 (- 찍)
         elif stripped.startswith("-"):
-            p = doc.add_paragraph(stripped)
+            p = doc.add_paragraph()
             p.paragraph_format.left_indent = Inches(0.2)
             p.paragraph_format.space_after = Pt(3)
             p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
             set_font_style(run, name="바탕체", size_pt=15, bold=False)
+            
+        # 5) 소항목 (· 땡)
         elif stripped.startswith("·") or stripped.startswith("."):
-            p = doc.add_paragraph(stripped)
+            p = doc.add_paragraph()
             p.paragraph_format.left_indent = Inches(0.4)
             p.paragraph_format.space_after = Pt(3)
             p.paragraph_format.line_spacing = 1.25
             run = p.add_run(stripped)
             set_font_style(run, name="바탕체", size_pt=15, bold=False)
+            
+        # 6) 숫자 목록 (1., 2., 3. 등)
+        elif re.match(r'^\d+\.', stripped):
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(8)
+            p.paragraph_format.space_after = Pt(3)
+            p.paragraph_format.line_spacing = 1.25
+            run = p.add_run(stripped)
+            set_font_style(run, name="바탕체", size_pt=15, bold=True)
+            
+        # 7) 기타 일반 텍스트
         else:
             p = doc.add_paragraph()
             p.paragraph_format.space_after = Pt(3)
