@@ -24,15 +24,11 @@ st.set_page_config(
 # 2. 기사 본문 자동 추출 크롤러 유틸리티
 # ----------------------------------------------------
 def extract_article_content(user_text):
-    """
-    입력 텍스트에서 URL을 감지하면 실제 웹페이지 본문을 긁어오고,
-    일반 텍스트면 그대로 반환합니다.
-    """
     url_pattern = re.compile(r'https?://[^\s]+')
     urls = url_pattern.findall(user_text.strip())
     
     if not urls:
-        return user_text, None  # 일반 텍스트 입력
+        return user_text, None
 
     target_url = urls[0]
     headers = {
@@ -42,74 +38,68 @@ def extract_article_content(user_text):
     try:
         res = requests.get(target_url, headers=headers, timeout=8)
         res.raise_for_status()
-        res.encoding = res.apparent_encoding  # 한글 인코딩 자동 보정
+        res.encoding = res.apparent_encoding
         
         soup = BeautifulSoup(res.text, 'html.parser')
-        
-        # 불필요한 스크립트, 스타일, 광고 제거
         for tag in soup(['script', 'style', 'header', 'footer', 'nav', 'aside', 'iframe']):
             tag.decompose()
             
-        # 1) 네이버 뉴스 특화 추출
         naver_news = soup.find('article', id='dic_area') or soup.find('div', id='newsct_article') or soup.find('div', id='articeBody')
         if naver_news:
             return naver_news.get_text(separator='\n', strip=True), target_url
             
-        # 2) 일반 언론사 본문 태그 탐색
         article_tag = soup.find('article') or soup.find('div', class_=re.compile(r'article|news|content|body', re.I))
         if article_tag:
             paragraphs = [p.get_text(strip=True) for p in article_tag.find_all(['p', 'div']) if len(p.get_text(strip=True)) > 20]
             if paragraphs:
                 return '\n'.join(paragraphs), target_url
 
-        # 3) 전체 텍스트 fallback
         text_lines = [p.get_text(strip=True) for p in soup.find_all('p') if len(p.get_text(strip=True)) > 20]
         if text_lines:
             return '\n'.join(text_lines), target_url
             
         return user_text, target_url
-    except Exception as e:
-        # 크롤링 실패 시 원본 URL/텍스트 반환
+    except Exception:
         return user_text, target_url
 
 # ----------------------------------------------------
-# 3. Gem 시스템 지침 (Instructions) 설정
+# 3. Gem 시스템 지침 (실시간 심층 추가 검색 활성화)
 # ----------------------------------------------------
 SYSTEM_INSTRUCTION = """
 # Role
 당신은 삼성생명 기획팀의 "동향분석 및 보고서 작성 전문 Agent"입니다.
-국내 1위 생명보험사인 삼성생명의 기획팀 직원 관점에서 전달된 기사 본문을 정밀 분석하고, 정교하고 전략적인 규격 보고서를 작성하는 역할을 수행합니다.
+국내 1위 생명보험사인 삼성생명의 기획팀 직원 관점에서 전달된 메인 기사를 분석하고, 실시간 추가 구글 검색(Deep Dive Search)을 통해 배경 맥락과 최신 비교 데이터를 덧붙여 정교한 사내 보고서를 작성합니다.
 
 # Core Workflow (4단계 보고서 작성 프로세스)
-[Step 1. 메인 기사 원문 분석]
-- 제공된 실제 기사 원문(또는 텍스트)을 철저히 분석하여 주요 사실관계, 핵심 수치, 이슈 맥락을 정확히 파악합니다.
-- 절대로 임의로 사실을 날조하거나 다른 주제를 지어내지 말고, 제공된 기사 본문의 사실관계에 100% 입각하여 작성하십시오.
+[Step 1. 메인 기사 분석]
+- 제공된 기사 원문(또는 텍스트)을 분석하여 주요 사실관계, 핵심 수치, 이슈 맥락을 정확히 파악합니다.
 
-[Step 2. 심층 데이터 분석 및 배경 맥락 연계]
-- 메인 이슈와 관련된 최신 업계 동향, 경쟁사 동향, 금융당국 규제/제도 기조, 시장 지표를 연계하여 다각도로 분석합니다.
+[Step 2. 심층 검색 및 데이터 결합 (Deep Dive Search)]
+- 제공된 메인 기사 외에 반드시 **구글 검색 도구(Google Search)를 능동적으로 실행**하여 관련 최신 데이터를 실시간으로 보완·학습합니다:
+  1) 메인 이슈 관련 최신 업계 동향 및 금융당국 규제/제도 수치 (CSM, K-ICS 비율, 할인율, 무·저해지 해약률 등)
+  2) 타 생보사(한화, 교보 등) 대응 현황 및 삼성생명 관련 사업/재무 비교 데이터 (CSM 잔액/신계약, 순이익, K-ICS, FC 규모 등)
 
 [Step 3. 삼성생명 맞춤형 전략적 시사점 도출]
-- 사전에 고정된 프레임워크에 얽매이지 않고, **입력된 기사의 핵심 내용 및 이슈 성격(상품, 채널, 자산운용, 재무/자본, 규제 대응, 신사업, 디지털, 리스크 등)에 직접 부합하는 삼성생명의 전략적 영향과 대응 방향('So What')을 자율적·논리적으로 해석하여 도출**합니다.
-- 국내 1위사로서 시장 지배력을 공고히 하고 위기/기회 요인에 선제 대응하기 위한 실질적인 액션 플랜을 제시합니다.
+- 입력된 기사의 핵심 내용 및 추가 검색된 시장 환경에 입각하여, 삼성생명의 전략적 영향과 대응 방향('So What')을 자율적·논리적으로 해석하여 도출합니다.
 
 [Step 4. 규격화된 보고서 작성]
-- 아래 Output Structure & Formatting Rules를 철저히 준수하여 보고서를 출력합니다.
+- 아래 Output Structure & Formatting Rules를 준수하여 보고서를 작성합니다.
 
 # Output Structure & Formatting Rules (출력 및 작성 규격)
 1. 문체 및 특수기호 위계 구조 원칙 (엄격 준수):
-   - [Page 1], [Page 2] 같은 페이지 라벨이나 <표 1> 같은 표는 일체 작성하지 않습니다.
+   - [Page 1], [Page 2] 같은 라벨이나 <표 1> 표는 일체 작성하지 않습니다.
    - 대항목 (네모): `□` -> 대주제 및 핵심 테마 명시 (반드시 `□ [요약]` 및 `□ [시사점]` 표기 준수)
    - 중항목 (찍): `-` -> 반드시 하위 소항목(·)들의 내용을 포괄하는 간결하고 압축적인 '한 문장 요약/헤드라인' 형태로 작성하며 명사형 종결
    - 소항목 (땡): `·` -> 상위 중항목(-)을 뒷받침하는 구체적인 세부 팩트, 통계 수치, 실행 과제, 메커니즘을 상세히 서술
-   - 문체: 명확하고 격식 있는 보고서용 개조식 명사형 종결문 (~확대, ~추진, ~견지, ~구축, ~달성, ~확보, ~도모 등)
-   - [문장 길이 및 줄바꿈 규칙]: 바탕체 15pt 기준 각 항목(□, -, ·)의 문장이 한 줄에 다 들어오거나 최대 2줄을 넘지 않도록 고밀도·컴팩트하게 서술
+   - 문체: 명확하고 격식 있는 보고서용 개조식 명사형 종결문 (~확대, ~추진, ~견지, ~구축, ~달성, ~확보 등)
+   - [문장 길이]: 바탕체 15pt 기준 각 항목(□, -, ·)의 문장이 한 줄에 다 들어오거나 최대 2줄을 넘지 않도록 서술
 
 2. 보고서 본문 구성:
 ---
 □ [요약] (분석된 실제 기사의 핵심 제목)
-  - (기사의 팩트와 수치를 포괄하는 핵심 사실관계 한 문장 요약 명사형 종결)
+  - (기사의 팩트와 추가 검색된 수치를 포괄하는 핵심 사실관계 한 문장 요약 명사형 종결)
     · 메인 기사 주요 사실관계 및 일자/배경 세부 내용
-    · 삼성생명 및 업계 관련 세부 통계/지표 데이터
+    · 삼성생명 및 업계 관련 세부 통계/지표 데이터 (추가 검색 데이터 결합)
   - (시장 변화 및 타사 동향을 포괄하는 업계 판도 한 문장 요약 명사형 종결)
     · 경쟁사 대응 현황 및 시장 판매/영업 전략 동향
     · 금융당국 규제/제도 기조 및 시장 환경 영향 분석
@@ -129,7 +119,7 @@ SYSTEM_INSTRUCTION = """
     · 핵심 요약: 1~2줄 컴팩트 요약
 
 2. [심층 배경 및 비교 데이터]
-  - 주요 지표 및 제도적 맥락
+  - 주요 지표 및 제도적 맥락 (실시간 검색으로 파악한 데이터)
     · 핵심 데이터: 1~2줄 핵심 수치 요약
 
 3. [기획팀 종합 평가 및 향후 모니터링 포인트]
@@ -230,7 +220,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ----------------------------------------------------
-# 6. 메인 앱 화면 및 분석 실행 (크롤링 -> Gemini 분석)
+# 6. 메인 앱 화면 및 분석 실행 (크롤링 + Google Search 도구 결합)
 # ----------------------------------------------------
 api_key = st.secrets.get("GEMINI_API_KEY")
 if not api_key:
@@ -240,7 +230,7 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 st.title("📊 삼성생명 기획팀 동향분석 Agent")
-st.caption("기사 URL 또는 본문 텍스트를 입력하면 실제 기사 본문을 정밀 분석하여 사내 표준 보고서 및 Word/TXT 파일을 생성합니다.")
+st.caption("기사 URL 또는 본문 텍스트를 입력하면 실시간 심층 검색을 거쳐 살을 덧붙인 정규 보고서를 작성합니다.")
 
 user_input = st.text_area(
     "분석할 기사 내용 또는 기사 URL을 입력하세요:",
@@ -252,27 +242,27 @@ if st.button("보고서 생성 시작", type="primary", use_container_width=True
     if not user_input.strip():
         st.warning("분석할 기사 내용이나 URL을 입력해주세요.")
     else:
-        with st.spinner("기사 본문을 추출하고 기획팀 규격 보고서를 작성 중입니다..."):
-            # 1) URL인 경우 실제 본문 크롤링 수행
+        with st.spinner("기사 본문 확인 및 실시간 심층 추가 검색(Deep Dive)을 진행 중입니다..."):
             extracted_text, detected_url = extract_article_content(user_input)
             
-            # 2) 프롬프트 구성 (실제 본문 내용 전달)
             if detected_url:
-                prompt_content = f"다음은 입력된 URL({detected_url})에서 추출한 기사 본문입니다. 이 내용을 바탕으로 심층 분석 보고서를 작성하십시오:\n\n{extracted_text}"
+                prompt_content = f"다음은 입력된 URL({detected_url})의 기사 본문입니다. 이 내용을 메인 뼈대로 삼고, 구글 검색을 통해 관련 최신 수치/타사 동향을 심층 보완하여 보고서를 작성하십시오:\n\n{extracted_text}"
             else:
-                prompt_content = f"다음 기사 내용을 바탕으로 심층 분석 보고서를 작성하십시오:\n\n{extracted_text}"
+                prompt_content = f"다음 기사 내용을 메인 뼈대로 삼고, 구글 검색을 통해 관련 최신 수치/타사 동향을 심층 보완하여 보고서를 작성하십시오:\n\n{extracted_text}"
 
             response_success = False
             last_error_msg = ""
 
             for attempt in range(3):
                 try:
+                    # Google Search 도구를 다시 결합하여 실시간 추가 검색 수행
                     response = client.models.generate_content(
                         model="gemini-3.6-flash",
                         contents=prompt_content,
                         config=types.GenerateContentConfig(
                             system_instruction=SYSTEM_INSTRUCTION,
-                            temperature=0.2
+                            temperature=0.2,
+                            tools=[types.Tool(google_search=types.GoogleSearch())]
                         )
                     )
                     st.session_state["last_report"] = response.text
